@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Global styles */
+
+:root {
+  /* LIGHT MODE */
+  --sidebar: oklch(96.7% 0.003 264.542);               /* white */
+  --sidebar-foreground: oklch(26.9% 0 0);
+  --sidebar-primary: oklch(26.9% 0 0);
+  --sidebar-primary-foreground: oklch(98.5% 0 0);
+  --sidebar-accent: oklch(98% 0 0);
+  --sidebar-accent-foreground: oklch(26.9% 0 0);
+  font-family: "Roboto", sans-serif;
+}
+
+
+body {
+  font-family: inherit;
+  font-optical-sizing: auto;
+}
+
+.dark {
+  /* DARK MODE */
+  --sidebar: oklch(20.5% 0 0);             /* neutral-800 equivalent */
+  --sidebar-foreground: oklch(95% 0 0);  /* light text */
+  --sidebar-primary: oklch(60% 0.1 260); /* blue-ish highlight optional */
+  --sidebar-primary-foreground: oklch(98% 0 0);
+  --sidebar-accent: oklch(28% 0 0);      /* neutral-700 */
+  --sidebar-accent-foreground: oklch(98% 0 0);
+  --sidebar-border: oklch(30% 0 0);      /* dark border */
+  --sidebar-ring: oklch(65% 0.1 260);
+}
+
+@theme {
+  --font-geist: "Geist Mono", monospace;
+}
+
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+
+}
+
+
+@layer base {
+  
+}
+
+
+/* Required for shadcn sidebar to hide text when collapsed */
+.sidebar-label {
+  transition: opacity 0.2s, width 0.2s;
+}
+
+[data-collapsible=icon] .sidebar-label {
+  opacity: 1;
+}
+
+[data-collapsible=icon][data-state=collapsed] .sidebar-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
