@@ -3,9 +3,17 @@ import { DropdownMenuLabel, DropdownMenu, DropdownMenuContent, DropdownMenuItem,
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { LogOutIcon, Moon } from "lucide-react"
+import { useAuth } from './context/Auth'
 
 
 const Dropdown = () => {
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();  
+  }
+
+  
   return (
     <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -43,6 +51,7 @@ const Dropdown = () => {
 
               {/* Logout */}
               <DropdownMenuItem
+                onClick={handleLogout}
                 className="hover:bg-neutral-700 hover:text-white focus:bg-neutral-700 flex items-center justify-between"
               >
                 Log out

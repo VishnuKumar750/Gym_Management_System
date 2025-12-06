@@ -7,24 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
 import { useState } from 'react';
 import { useAuth } from './context/Auth';
-
-
-
+import { useNavigate } from 'react-router-dom';
 
 
 function AdminLoginForm () {
 
-  const [ adminId, setAdminId ] = useState('');
+  const [ adminId, setAdminId ] = useState<string>("");
   const [ password, setPassword ] = useState('');
 
+  const navigate = useNavigate();
+  
   const { user, login, logout } = useAuth();
 
   const handleLogin = () => {
     console.log('clicked')
-    if(adminId && password) {
-      login({ email: adminId })
+    const fakeUser = {
+      id: "001", 
+      name: "Vishnu", 
+      email: "vishnu@gmail.com", 
+      role: "admin"
     }
+
+    login(fakeUser);
+    navigate("/")
   }
+
+
+  
 
     return (
     <div className="w-full max-w-sm bg-white rounded-md">

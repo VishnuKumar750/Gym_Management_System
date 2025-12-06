@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }) {
             <Dropdown />
           </header>
 
-          <main className="container mx-auto flex-1 p-4 dark:bg-neutral-800">
+          <main className="flex-1 p-4 dark:bg-neutral-800">
             {children}
           </main>
         </SidebarInset>

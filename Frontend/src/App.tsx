@@ -9,12 +9,14 @@ import AuthForm from "./components/AuthForm";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import AuthLayout from "./components/layout/AuthLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./components/context/AuthProvider";
+import Report from "./components/Report";
+import Profile from "./components/Profile";
 
 function App() {
+
+
   return (
     <Router>
-      <AuthProvider>
         
         <Routes>
 
@@ -29,21 +31,32 @@ function App() {
           />
 
           {/* Protected Routes */}
+          {/* <Route
+            path="/"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <DashboardLayout>
+                  <Dashboard />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          /> */}
+
           <Route
             path="/"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={["admin"]}>
                 <DashboardLayout>
-                  <Dashboard />
+                  <Profile />
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
           <Route
-            path="/users"
+            path="/members"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={["admin"]}>
                 <DashboardLayout>
                   <Users />
                 </DashboardLayout>
@@ -52,9 +65,20 @@ function App() {
           />
 
           <Route
+            path="/Report"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <DashboardLayout>
+                  <Report />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/bills"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={["user"]}>
                 <DashboardLayout>
                   <Bills />
                 </DashboardLayout>
@@ -65,7 +89,18 @@ function App() {
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={["user"]}>
+                <DashboardLayout>
+                  <Notification />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/unauthorized"
+            element={
+              <ProtectedRoute roles={["user"]}>
                 <DashboardLayout>
                   <Notification />
                 </DashboardLayout>
@@ -75,7 +110,6 @@ function App() {
 
         </Routes>
 
-      </AuthProvider>
     </Router>
   );
 }
