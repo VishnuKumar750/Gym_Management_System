@@ -1,6 +1,6 @@
 # Gym Management System
 
-This is the backend API for a Gym Management System. It includes modules for members, billing, diet plans, supplements, notifications, and reports. Role-based access control ensures proper authorization for Admins and Members.
+This is the backend for a Gym Management System. It includes modules for members, billing, diet plans, supplements, notifications, and reports. Role-based access control ensures proper authorization for Admins and Members.
 
 ---
 
