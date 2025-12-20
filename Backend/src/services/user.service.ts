@@ -1,7 +1,15 @@
 import Member, { IMember } from '../models/member.model';
 import User, { IUser } from '../models/user.model';
+import { HTTPSTATUS } from '../config/http.config'
 
 export const createUser = async (userData: IUser) => {
+  const existingUser = await User.findOne({ email });
+
+  if(existingUser) {
+  	throw new ErrorHandler(HTTPSTATUS.CONFLICT, "user already exists")
+  };
+
+
   return await User.create(userData);
 };
 
