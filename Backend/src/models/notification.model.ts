@@ -1,40 +1,20 @@
-import { Schema, model, Document, Types } from 'mongoose';
-import { NotificationStatus, NotificationType } from '../enums/notification.enums';
+import { Schema, model } from 'mongoose';
+import { INotification } from '../types/user.types';
 
-export interface INotification extends Document {
-  member: Types.ObjectId;
-  title: string;
-  message: string;
-  type: NotificationType;
-  status: NotificationStatus;
-}
+const NotificationMember = new Schema<INotification>({
+  gymId: { type: Schema.Types.ObjectId, required: true, ref: 'Gym', index: true },
+  memberId: { type: Schema.Types.ObjectId, required: true, ref: 'Member', index: true },
 
-const notificationSchema = new Schema<INotification>({
-  member: {
-    type: Schema.Types.ObjectId,
-    ref: 'Member',
-    required: true,
-  },
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  message: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: Object.values(NotificationType),
-    default: NotificationType.NEW_BILL,
-  },
-  status: {
-    type: String,
-    enum: Object.values(NotificationStatus),
-    default: NotificationStatus.SENT,
-  },
-});
+  notificationType: { type: String, enum: ['FEE_REMINDER', 'ANNOUNCEMENT', 'EXPIRY_ALERT'], required: true },
+  message: { type: String, required: true },
+  sentStatus: { type: String, enum: ['SENT', 'FAILED'], required: true },
+  sentAt: { type: Date, default: Date.now }
 
-export const Notification = model<INotification>('Notification', notificationSchema);
+}, { timestamps: true })
+
+// index 
+NotificationMember.index({ gymId: 1, memberId: 1 });
+NotificationMember.index({ gymId: 1, notificationType: 1 });
+
+export const Notification = model<INotification>('Notification', NotificationMember);
 export default Notification;

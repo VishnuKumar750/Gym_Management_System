@@ -6,6 +6,7 @@ const appconfig = () => ({
   FRONTEND_ORIGIN: getEnv('FRONTEND_ORIGIN', '*'),
   JWT_SECRET: getEnv('JWT_SECRET', ''),
   JWT_EXPIRES: getEnv('JWT_EXPIRES', ''),
+  BCRYPT_SALT: getEnv('BCRYPT_SALT', '10'),
 });
 
 export const config = appconfig();

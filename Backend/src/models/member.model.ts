@@ -1,72 +1,22 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model } from 'mongoose';
+import { IMember } from '../types/user.types';
 
-export interface IPackageHistory {
-  packageId: Types.ObjectId;
-  startDate: Date;
-  endDate: Date;
-  amount: number;
-  paymentStatus: 'PAID' | 'UNPAID';
-}
+const MemberModel = new Schema<IMember>({
+  gymId: { type: Schema.Types.ObjectId, required: true, ref: 'Gym', index: true },
+  userId: { type: Schema.Types.ObjectId, required: true, ref: 'User', index: true },
+  phone: { type: String },
+  avatar: { type: String },
+  membershipStatus: { type: String, enum: ['ACTIVE', 'INACTIVE', 'EXPIRED'], default: 'ACTIVE'},
+  package_history: [{
+    type: Schema.Types.ObjectId,
+    ref: 'FeePackage'
+  }],
+  joinDate: { type: Date, default: Date.now },
+  expiryDate: { type: Date },
+}, { timestamps: true })
 
-export interface IMember extends Document {
-  user: Types.ObjectId;
-  memberId: string;
-  fullName: string;
-  phone: string;
-  age: number;
-  membership?: {
-    plan: Types.ObjectId;
-    startDate: Date;
-    endDate: Date;
-    status: 'ACTIVE' | 'EXPIRED' | 'PENDING';
-  };
-  packageHistory: IPackageHistory[];
-}
+// index 
+MemberModel.index({ gymId: 1, userId: 1 }, { unique: true })
 
-const memberSchema = new Schema<IMember>(
-  {
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      unique: true,
-    },
-    memberId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    fullName: { type: String, required: true, trim: true },
-    phone: { type: String, required: true },
-    age: { type: Number, required: true, min: 15 },
-
-    membership: {
-      plan: { type: Schema.Types.ObjectId, ref: 'FeePackage' },
-      startDate: Date,
-      endDate: Date,
-      status: {
-        type: String,
-        enum: ['ACTIVE', 'EXPIRED', 'PENDING'],
-        default: 'PENDING',
-      },
-    },
-
-    packageHistory: [
-      {
-        packageId: { type: Schema.Types.ObjectId, ref: 'FeePackage' },
-        startDate: Date,
-        endDate: Date,
-        amount: { type: Number },
-        paymentStatus: {
-          type: String,
-          enum: ['PAID', 'UNPAID'],
-          default: 'UNPAID',
-        },
-      },
-    ],
-  },
-  { timestamps: true }
-);
-
-export const Member = model<IMember>('Member', memberSchema);
+export const Member = model<IMember>('Member', MemberModel);
 export default Member;

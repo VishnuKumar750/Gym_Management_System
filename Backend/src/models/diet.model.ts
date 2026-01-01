@@ -1,38 +1,19 @@
-// models/diet.model.ts
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model } from 'mongoose';
+import { IDietPlan } from '../types/user.types';
 
-export interface IMeal {
-  mealType: string;
-  foodItems: string[];
-  calories: number;
-}
+const DietModel = new Schema<IDietPlan>({
+  gymId: { type: Schema.Types.ObjectId, required: true, ref: 'Gym', index: true },
 
-export interface IDietPlan extends Document {
-  member: Types.ObjectId;
-  startDate: Date;
-  endDate: Date;
-  meals: IMeal[];
-  notes?: string;
-  status: 'ACTIVE' | 'COMPLETED';
-}
+  title: { type: String, required: true },
+  description: { type: String, required: true },
 
-const mealSchema = new Schema<IMeal>({
-  mealType: { type: String, required: true },
-  foodItems: [{ type: String, required: true }],
-  calories: { type: Number, required: true },
-});
+  isActive: { type: Boolean, default: true },
 
-const dietPlanSchema = new Schema<IDietPlan>(
-  {
-    member: { type: Schema.Types.ObjectId, ref: 'Member', required: true },
-    startDate: { type: Date, required: true },
-    endDate: { type: Date, required: true },
-    meals: [mealSchema],
-    notes: String,
-    status: { type: String, enum: ['ACTIVE', 'COMPLETED'], default: 'ACTIVE' },
-  },
-  { timestamps: true }
-);
+  createdBy: { type: Schema.Types.ObjectId, required: true, ref: 'User' } // diet created by admin or trainer
+}, { timestamps: true })
 
-export const DietPlan = model<IDietPlan>('DietPlan', dietPlanSchema);
-export default DietPlan;
+// index 
+DietModel.index({ gymId: 1 });
+
+export const Diet = model<IDietPlan>('Diet', DietModel);
+export default Diet;

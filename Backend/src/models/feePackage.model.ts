@@ -1,41 +1,19 @@
-import { Schema, model, Document } from 'mongoose';
-import { MembershipPlan } from '../enums/day.enums';
+import { Schema, model } from 'mongoose';
+import { IFeePackage } from '../types/user.types';
 
-export interface IFeePackage extends Document {
-  plan: MembershipPlan;
-  durationInMonths: number;
-  amount: number;
-  description?: string;
-  isActive: boolean;
-}
+const FeePackageModel = new Schema<IFeePackage>({
+  gymId: { type: Schema.Types.ObjectId, required: true, ref: 'Gym', index: true },
 
-const feePackageSchema = new Schema<IFeePackage>(
-  {
-    plan: {
-      type: String,
-      enum: Object.values(MembershipPlan),
-      required: true,
-    },
-    durationInMonths: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    amount: {
-      type: Number,
-      required: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-  },
-  { timestamps: true }
-);
+  title: { type: String, required: true, minlength: 6, maxlength: 50 },
+  durationMonth: { type: Number, required: true, enum: [1, 3, 6, 9, 12], default: 1 },
+  amount: { type: Number, required: true, min: 0},
 
-export const FeePackage = model<IFeePackage>('FeePackage', feePackageSchema);
+  isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// indexing for faster query
+FeePackageModel.index({ gymId: 1, title: 1  }, { unique: true });
+FeePackageModel.index({ durationMonth: 1 })
+
+export const FeePackage = model<IFeePackage>('FeePackage', FeePackageModel);
 export default FeePackage;
