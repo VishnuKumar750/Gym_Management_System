@@ -1,15 +1,15 @@
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema } from 'zod/v3';
-import ErrorHandler from '../utils/ErrorHandler.utils';
-import { HTTPSTATUS } from '../config/http.config';
+import { Request, Response, NextFunction } from 'express'
+import { HTTPSTATUS } from '../config/http.config'
+import ApiError from '@/utils/ApiError'
+import { ZodAny } from 'zod'
 
 export const validate =
-  (schema: ZodSchema) => async (req: Request, res: Response, next: NextFunction) => {
+  (schema: ZodAny) => async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await schema.parseAsync(req.body);
-      next();
+      await schema.parseAsync(req.body)
+      next()
     } catch (err: any) {
-      const message = err.errors?.[0]?.message || 'Invalid request data';
-      next(new ErrorHandler(HTTPSTATUS.BAD_REQUEST, message));
+      const message = err.errors?.[0]?.message || 'Invalid request data'
+      next(new ApiError(message, HTTPSTATUS.BAD_REQUEST))
     }
-  };
+  }

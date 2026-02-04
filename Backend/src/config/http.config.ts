@@ -25,9 +25,9 @@ const httpConfig = () => ({
   NOT_IMPLEMENTED: 501,
   BAD_GATEWAY: 502,
   SERVICE_UNAVAILABLE: 503,
-  GATEWAY_TIMEOUT: 504,
-});
+  GATEWAY_TIMEOUT: 504
+})
 
-export const HTTPSTATUS = httpConfig();
+export const HTTPSTATUS = httpConfig()
 
-export type httpStatusCode = (typeof HTTPSTATUS)[keyof typeof HTTPSTATUS];
+export type httpStatusCode = (typeof HTTPSTATUS)[keyof typeof HTTPSTATUS]

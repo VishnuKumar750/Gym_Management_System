@@ -1,39 +1,22 @@
-import { Router } from 'express';
+import { Router } from 'express'
 import {
-  createSupplement,
-  getAllSupplements,
-  getSupplement,
-  updateSupplement,
-  deleteSupplement,
-} from '../controllers/supplement.controller';
-import { protectRoute } from '../middleware/auth.middleware';
-import { authorizeRoles } from '../middleware/roleBasedAuth.middleware';
-import { UserRole } from '../enums/roles.enums';
-import { validate } from '../middleware/validate.middleware';
-import {
-  createSupplementSchema,
-  updateSupplementSchema,
-} from '../validations/supplement.validations';
+  createSupplementController,
+  getSupplementsController,
+  getSupplementController,
+  updateSupplementController,
+  deleteSupplementController
+} from '@/controller/supplement.controller'
+import { protectRoute } from '@/middleware/auth.middleware'
 
-const router = Router();
+const router = Router()
 
-// supplement route
-router.post(
-  '/',
-  protectRoute,
-  authorizeRoles(UserRole.ADMIN),
-  validate(createSupplementSchema),
-  createSupplement
-);
-router.get('/', protectRoute, getAllSupplements);
-router.get('/:id', protectRoute, getSupplement);
-router.put(
-  '/:id',
-  protectRoute,
-  authorizeRoles(UserRole.ADMIN),
-  validate(updateSupplementSchema),
-  updateSupplement
-);
-router.delete('/:id', protectRoute, authorizeRoles(UserRole.ADMIN), deleteSupplement);
+// ADMIN
+router.post('/', protectRoute, createSupplementController)
+router.put('/:supplementId', protectRoute, updateSupplementController)
+router.delete('/:supplementId', protectRoute, deleteSupplementController)
 
-export default router;
+// ADMIN + MEMBER
+router.get('/', protectRoute, getSupplementsController)
+router.get('/:supplementId', protectRoute, getSupplementController)
+
+export default router

@@ -1,22 +1,34 @@
-import Router from 'express';
-import { validate } from '../middleware/validate.middleware';
-import { createMemberSchema } from '../validations/member.validations';
-import { createMember, getAllMembers } from '../controllers/member.controller';
-import { protectRoute } from '../middleware/auth.middleware';
-import { authorizeRoles } from '../middleware/roleBasedAuth.middleware';
-import { UserRole } from '../enums/roles.enums';
+import { Router } from 'express'
+import {
+  getMemberAnalyticsController,
+  getBillsController,
+  getBillController,
+  getNotificationsController,
+  getNotificationController,
+  markNotificationAsReadController,
+  deleteNotificationController
+} from '@/controller/member.controller'
+import { protectRoute } from '@/middleware/auth.middleware'
 
-const router = Router();
+const router = Router()
 
-// member route
-router.post(
-  '/',
-  protectRoute,
-  authorizeRoles(UserRole.ADMIN),
-  validate(createMemberSchema),
-  createMember
-);
+// =======================
+// ANALYTICS
+// =======================
+router.get('/analytics', protectRoute, getMemberAnalyticsController)
 
-router.get('/all-members', protectRoute, authorizeRoles(UserRole.ADMIN), getAllMembers);
+// =======================
+// BILLS
+// =======================
+router.get('/bills', protectRoute, getBillsController)
+router.get('/bills/:billId', getBillController)
 
-export default router;
+// =======================
+// NOTIFICATIONS
+// =======================
+router.get('/notifications', protectRoute, getNotificationsController)
+router.get('/notifications/:notificationId', getNotificationController)
+router.patch('/notifications/:notificationId/read', markNotificationAsReadController)
+router.delete('/notifications/:notificationId', deleteNotificationController)
+
+export default router
