@@ -1,27 +1,22 @@
-import { Router } from 'express';
-import { validate } from '../middleware/validate.middleware';
-import { createNotificationSchema } from '../validations/notification.validation';
+import { Router } from 'express'
 import {
-  createNotification,
-  getMemberNotifications,
-  markNotificationAsRead,
-} from '../controllers/notification.controller';
-import { protectRoute } from '../middleware/auth.middleware';
-import { authorizeRoles } from '../middleware/roleBasedAuth.middleware';
-import { UserRole } from '../enums/roles.enums';
+  createNotificationController,
+  getAllNotificationsController,
+  getNotificationController,
+  updateNotificationController,
+  deleteNotificationController
+} from '@/controller/notification.controller'
+import { protectRoute } from '@/middleware/auth.middleware'
 
-const router = Router();
+const router = Router()
 
-// notification route
-// Admin - create custom notification for any member
-router.post(
-  '/create',
-  protectRoute,
-  authorizeRoles(UserRole.ADMIN),
-  validate(createNotificationSchema),
-  createNotification
-);
-router.get('/:memberId', protectRoute, authorizeRoles(UserRole.MEMBER), getMemberNotifications);
-router.get('/read/:id', protectRoute, authorizeRoles(UserRole.MEMBER), markNotificationAsRead);
+// ADMIN
+router.post('/', protectRoute, createNotificationController)
+router.get('/', protectRoute, getAllNotificationsController)
+router.put('/:notificationId', updateNotificationController)
+router.delete('/:notificationId', deleteNotificationController)
 
-export default router;
+// ADMIN + MEMBER
+router.get('/:notificationId', protectRoute, getNotificationController)
+
+export default router

@@ -1,47 +1,83 @@
-import { ErrorRequestHandler } from 'express';
-import { HTTPSTATUS } from '../config/http.config';
-import { ApiResponse } from '../utils/apiResponse.utils';
-import ErrorHandler from '../utils/ErrorHandler.utils';
+import { HTTPSTATUS } from '@/config/http.config'
+import { Request, Response, NextFunction } from 'express'
+import { logger } from '@/utils/logger'
 
-const errorHandler: ErrorRequestHandler = (err: any, req, res, next) => {
-  // Log detailed error only in development
-  if (process.env.NODE_ENV !== 'production') {
-    console.error(err.stack);
+interface ErrorResponse {
+  success: false
+  error: {
+    statusCode: number
+    message: string
+    code?: string
+    details?: string
+    stack?: string
+  }
+}
+
+const globalErrorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
+  let statusCode = err.statusCode || HTTPSTATUS.INTERNAL_SERVER_ERROR
+  let message = err.message || 'Something went wrong'
+  let details: string | undefined
+
+  // =========================
+  // Known error handling
+  // =========================
+
+  // Invalid Mongo ObjectId
+  if (err.name === 'CastError') {
+    statusCode = HTTPSTATUS.BAD_REQUEST
+    message = `Invalid ${err.path}`
+    details = `Invalid value: ${err.value}`
   }
 
-  // Handle Invalid JSON Error
-  if (err instanceof SyntaxError && 'body' in err) {
-    const response = new ApiResponse(HTTPSTATUS.BAD_REQUEST, 'Invalid JSON format');
-    return res.status(response.statusCode).json(response);
+  // Duplicate key error
+  else if (err.code === 11000) {
+    statusCode = HTTPSTATUS.CONFLICT
+    message = `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`
   }
 
-  // Custom ErrorHandler errors
-  if (err instanceof ErrorHandler) {
-    const response = new ApiResponse(err.statusCode, err.message);
-    return res.status(response.statusCode).json(response);
+  // Mongoose validation error
+  else if (err.name === 'ValidationError') {
+    statusCode = HTTPSTATUS.BAD_REQUEST
+    message = 'Invalid input data'
+    details = Object.values(err.errors)
+      .map((e: any) => e.message)
+      .join(', ')
   }
 
-  // Mongoose / Zod / Joi / Generic Validation Errors
-  if (err.name === 'ValidationError') {
-    const response = new ApiResponse(HTTPSTATUS.UNPROCESSABLE_ENTITY, err.message);
-    return res.status(response.statusCode).json(response);
+  // =========================
+  // Expose error to Morgan
+  // =========================
+  res.locals.errorMessage = message
+
+  // =========================
+  // Log error (central place)
+  // =========================
+  logger.error('API Error', {
+    meta: {
+      userId: (req as any).user?.id || null,
+      role: (req as any).user?.role || 'anonymous',
+      method: req.method,
+      endpoint: req.originalUrl,
+      statusCode,
+      message,
+      ...(details && { details })
+    }
+  })
+
+  // =========================
+  // Response
+  // =========================
+  const response: ErrorResponse = {
+    success: false,
+    error: {
+      statusCode,
+      message,
+      ...(details && { details }),
+      ...(process.env.NODE_ENV === 'development' && err.stack ? { stack: err.stack } : {})
+    }
   }
 
-  // TypeError fallback
-  if (err instanceof TypeError) {
-    const response = new ApiResponse(
-      HTTPSTATUS.INTERNAL_SERVER_ERROR,
-      'Unexpected type error occurred'
-    );
-    return res.status(response.statusCode).json(response);
-  }
+  res.status(statusCode).json(response)
+}
 
-  // Unknown error fallback
-  const response = new ApiResponse(
-    HTTPSTATUS.INTERNAL_SERVER_ERROR,
-    err.message || 'Internal Server Error'
-  );
-  return res.status(response.statusCode).json(response);
-};
-
-export default errorHandler;
+export default globalErrorHandler
