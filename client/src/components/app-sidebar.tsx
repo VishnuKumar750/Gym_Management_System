@@ -1,15 +1,10 @@
 import {
   IconDashboard,
   IconUsers,
-  IconReport,
-  IconCalendar,
   IconMoneybag,
   IconBell,
   IconBuildingStore,
   IconCookie,
-  IconSettings,
-  IconHelp,
-  IconSearch,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";

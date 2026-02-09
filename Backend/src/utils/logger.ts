@@ -7,8 +7,8 @@ const logFormat = printf(({ level, message, timestamp, stack, meta }) => {
     time: timestamp,
     level,
     message,
-    ...(meta && meta),
-    ...(stack && { stack })
+    meta,
+    stack
   })
 })
 

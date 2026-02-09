@@ -1,7 +1,6 @@
 import { CirclePlus, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import api from "@/axios/axios-api";
@@ -20,11 +19,16 @@ import { Label } from "./ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
 import { Switch } from "./ui/switch";
+import type { AxiosError } from "axios";
+import type { ApiError } from "@/types/api.types";
+import { toast } from "sonner";
 
 /* ----------------------------- ZOD ----------------------------- */
 
@@ -37,10 +41,10 @@ const supplementSchema = z.object({
     "vitamins",
     "other",
   ]),
-  brand: z.string().optional(),
-  description: z.string().optional(),
+  brand: z.string().min(2, "brand name is required"),
+  description: z.string().min(2, "description is required"),
   price: z.number().min(0, "Price must be positive"),
-  stockQuantity: z.number().min(0),
+  stockQuantity: z.number().min(0, "stock quantity must be greater than 0"),
   unit: z.string().default("piece"),
   imageUrl: z.string().url().optional(),
   isAvailable: z.boolean(),
@@ -61,59 +65,63 @@ const createSupplement = async (payload: SupplementFormValues) => {
 
 export default function AddSupplement() {
   const queryClient = useQueryClient();
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-    setError,
-  } = useForm<SupplementFormValues>({
-    resolver: zodResolver(supplementSchema),
-    defaultValues: {
-      category: "protein",
-      unit: "piece",
-      isAvailable: true,
-      stockQuantity: 0,
-    },
+  const [open, setOpen] = useState<boolean>(false);
+  const [formData, setFormData] = useState<SupplementFormValues>({
+    productName: "",
+    category: "protein",
+    brand: "",
+    description: "",
+    price: 0,
+    stockQuantity: 0,
+    unit: "piece",
+    imageUrl: "",
+    isAvailable: true,
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
     mutationFn: createSupplement,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      toast.success(data?.message ?? "product added");
       queryClient.invalidateQueries({ queryKey: ["supplements"] });
-
-      reset({
+      setFormData({
         productName: "",
+        category: "protein",
         brand: "",
         description: "",
         price: 0,
         stockQuantity: 0,
-        category: "protein",
         unit: "piece",
         imageUrl: "",
         isAvailable: true,
       });
+      setErrors({});
+      setOpen(false);
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message;
-
-      if (message) {
-        setError("root", {
-          type: "server",
-          message,
-        });
-      }
+    onError: (error: AxiosError<ApiError>) => {
+      const message = error?.response?.data?.error;
+      toast.error(message ?? "product creation failed");
     },
   });
 
-  const onSubmit = (values: SupplementFormValues) => {
-    mutation.mutate(values);
+  const handleSubmit = () => {
+    const result = supplementSchema.safeParse(formData);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((e) => {
+        fieldErrors[e.path.join(".")] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    mutation.mutate(result.data);
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline">
           <CirclePlus className="w-4 h-4 mr-2" />
@@ -121,34 +129,41 @@ export default function AddSupplement() {
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="space-y-6 px-4 overflow-auto">
+      <SheetContent className="overflow-auto">
         <SheetHeader>
           <SheetTitle>Add Supplement</SheetTitle>
           <SheetDescription>Add a supplement to the store</SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form className="space-y-4 px-4">
           {/* Product Name */}
-          <div>
+          <div className="space-y-2">
             <Label>Product Name</Label>
-            <Input {...register("productName")} />
+            <Input
+              value={formData.productName}
+              onChange={(e) =>
+                setFormData({ ...formData, productName: e.target.value })
+              }
+              placeholder="whey protein powder"
+            />
             {errors.productName && (
-              <p className="text-sm text-destructive">
-                {errors.productName.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.productName}</p>
             )}
           </div>
 
           {/* Category */}
-          <div>
+          <div className="space-y-2">
             <Label>Category</Label>
             <Select
-              defaultValue="protein"
+              value={formData.category}
               onValueChange={(v) =>
-                setValue("category", v as SupplementFormValues["category"])
+                setFormData({
+                  ...formData,
+                  category: v as SupplementFormValues["category"],
+                })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -162,46 +177,111 @@ export default function AddSupplement() {
           </div>
 
           {/* Brand */}
-          <div>
+          <div className="space-y-2">
             <Label>Brand</Label>
-            <Input {...register("brand")} />
+            <Input
+              value={formData.brand}
+              onChange={(e) =>
+                setFormData({ ...formData, brand: e.target.value })
+              }
+              placeholder="muscel blaze"
+            />
+            {errors.brand && (
+              <p className="text-sm text-destructive">{errors.brand}</p>
+            )}
           </div>
 
           {/* Description */}
-          <div>
+          <div className="space-y-2">
             <Label>Description</Label>
-            <Textarea rows={3} {...register("description")} />
+            <Textarea
+              rows={3}
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              className="resize-none "
+              placeholder="description of the product"
+            />
+            {errors.description && (
+              <p className="text-sm text-destructive">{errors.description}</p>
+            )}
+          </div>
+
+          {/* unit */}
+          <div className="space-y-2">
+            <Label>Unit</Label>
+            <Select
+              value={formData.unit}
+              onValueChange={(v) =>
+                setFormData({
+                  ...formData,
+                  unit: v as SupplementFormValues["unit"],
+                })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="select unit for product" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>select unit for product</SelectLabel>
+                  <SelectItem value="piece">Piece</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Price */}
-          <div>
+          <div className="space-y-2">
             <Label>Price</Label>
             <Input
               type="number"
               min={0}
-              {...register("price", { valueAsNumber: true })}
+              value={formData.price}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  price: Number(e.target.value),
+                })
+              }
             />
             {errors.price && (
-              <p className="text-sm text-destructive">{errors.price.message}</p>
+              <p className="text-sm text-destructive">{errors.price}</p>
             )}
           </div>
 
           {/* Stock */}
-          <div>
+          <div className="space-y-2">
             <Label>Stock Quantity</Label>
             <Input
               type="number"
               min={0}
-              {...register("stockQuantity", {
-                valueAsNumber: true,
-              })}
+              value={formData.stockQuantity}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  stockQuantity: Number(e.target.value),
+                })
+              }
             />
+            {errors.stockQuantity && (
+              <p className="text-sm text-destructive">{errors.stockQuantity}</p>
+            )}
           </div>
 
           {/* Image URL */}
-          <div>
+          <div className="space-y-2">
             <Label>Image URL</Label>
-            <Input {...register("imageUrl")} />
+            <Input
+              value={formData.imageUrl}
+              onChange={(e) =>
+                setFormData({ ...formData, imageUrl: e.target.value })
+              }
+              placeholder="link of product image"
+            />
           </div>
 
           {/* Availability */}
@@ -211,21 +291,24 @@ export default function AddSupplement() {
               <p className="text-xs text-muted-foreground">Visible in store</p>
             </div>
             <Switch
-              defaultChecked
-              onCheckedChange={(v) => setValue("isAvailable", v)}
+              checked={formData.isAvailable}
+              onCheckedChange={(v) =>
+                setFormData({ ...formData, isAvailable: v })
+              }
             />
           </div>
 
           {/* SERVER ERROR */}
-          {errors.root?.message && (
+          {errors.root && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errors.root.message}
+              {errors.root}
             </div>
           )}
 
           <Button
-            type="submit"
-            className="w-full"
+            type="button"
+            className="w-full mb-4"
+            onClick={handleSubmit}
             disabled={mutation.isPending}
           >
             {mutation.isPending && (

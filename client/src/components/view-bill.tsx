@@ -1,4 +1,3 @@
-import api from "@/axios/axios-api";
 import { Button } from "./ui/button";
 import {
   Sheet,
@@ -8,33 +7,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "./ui/sheet";
-import { Download, Eye, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Download, Eye } from "lucide-react";
+import type { IBill } from "@/types/bill.types";
 
-const getBillById = async (billId: string) => {
-  const res = await api.get(`/bills/${billId}`, {
-    withCredentials: true,
-  });
-  console.log("bill data", res.data.data);
-  const bill = res.data.data;
-  return bill;
+type Props = {
+  bill: IBill;
 };
 
-interface Props {
-  billId: string;
-}
-
-export default function Bill({ billId }: Props) {
-  const {
-    data: bill,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["bill", billId],
-    queryFn: () => getBillById(billId),
-    enabled: !!billId,
-  });
-
+export default function Bill({ bill }: Props) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -44,7 +24,7 @@ export default function Bill({ billId }: Props) {
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="px-4">
+      <SheetContent className="overflow-auto">
         <SheetHeader>
           <SheetTitle>Bill Details</SheetTitle>
           <SheetDescription>
@@ -52,22 +32,10 @@ export default function Bill({ billId }: Props) {
           </SheetDescription>
         </SheetHeader>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        )}
-
-        {isError && (
-          <p className="text-sm text-destructive">
-            Failed to load bill details
-          </p>
-        )}
-
         {bill && (
           <>
             {/* INVOICE CONTENT */}
-            <div id="invoice-print" className="mt-6 space-y-6 ">
+            <div id="invoice-print" className="px-4 space-y-6 ">
               {/* Header */}
               <div className="flex justify-between">
                 <div>
@@ -76,17 +44,20 @@ export default function Bill({ billId }: Props) {
                     Bill No: {bill.billNumber}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Date: {new Date(bill.paymentDate).toLocaleDateString()}
+                    Date:{" "}
+                    {bill.paymentDate
+                      ? new Date(bill.paymentDate).toLocaleDateString()
+                      : ""}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <p className="font-medium">{bill.member.name}</p>
+                  <p className="font-medium">{bill.memberId.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {bill.member.email}
+                    {bill.memberId.email}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {bill.member.phone}
+                    {bill.memberId.phone}
                   </p>
                 </div>
               </div>
@@ -101,7 +72,7 @@ export default function Bill({ billId }: Props) {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="border p-2">{bill.package.packageName}</td>
+                    <td className="border p-2">{bill.packageId.packageName}</td>
                     <td className="border p-2 text-right">₹{bill.amount}</td>
                   </tr>
 
@@ -118,7 +89,7 @@ export default function Bill({ billId }: Props) {
                     <tr>
                       <td className="border p-2">Tax</td>
                       <td className="border p-2 text-right">
-                        +₹{bill.taxAmount}
+                        {bill.taxAmount}%
                       </td>
                     </tr>
                   )}
@@ -132,17 +103,11 @@ export default function Bill({ billId }: Props) {
                 </tbody>
               </table>
 
-              {/* Validity */}
-              <div className="text-sm text-muted-foreground">
-                Valid from {new Date(bill.validFrom).toLocaleDateString()} to{" "}
-                {new Date(bill.validUntil).toLocaleDateString()}
-              </div>
-
               {/* Payment Info */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium">Payment Method:</span>{" "}
-                  {bill.paymentMethod.toUpperCase()}
+                  {bill.paymentMethod ? bill.paymentMethod.toUpperCase() : "-"}
                 </div>
                 <div>
                   <span className="font-medium">Status:</span>{" "}
@@ -155,16 +120,15 @@ export default function Bill({ billId }: Props) {
                   <span className="font-medium">Remarks:</span> {bill.remarks}
                 </p>
               )}
+              {/* ACTIONS */}
+              <Button
+                className="w-full mt-6 "
+                onClick={() => printInvoice("invoice-print")}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download / Print Invoice
+              </Button>
             </div>
-
-            {/* ACTIONS */}
-            <Button
-              className="w-full mt-6 "
-              onClick={() => printInvoice("invoice-print")}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download / Print Invoice
-            </Button>
           </>
         )}
       </SheetContent>

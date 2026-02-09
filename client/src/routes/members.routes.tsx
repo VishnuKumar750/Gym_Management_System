@@ -1,11 +1,20 @@
+import { lazy, Suspense } from "react";
 import type { RouteObject } from "react-router-dom";
+
 import { RoleGuard } from "./RoleGuard";
 import Dashboard from "@/components/layout/Dashboard";
 
-// member dashboard pages
-import MemberAnalyticsPage from "@/features/members/page/MemberDashboard";
-import BillReceipts from "@/features/members/page/BillReceipts";
-import MemberNotifications from "@/features/members/page/BillNotification";
+/* ---------------------- Lazy Member Pages ---------------------- */
+
+const MemberAnalyticsPage = lazy(
+  () => import("@/features/members/MemberDashboard"),
+);
+const BillReceipts = lazy(() => import("@/features/members/BillReceipts"));
+const MemberNotifications = lazy(
+  () => import("@/features/members/BillNotification"),
+);
+
+/* -------------------------- Routes ----------------------------- */
 
 const MemberRoutes: RouteObject[] = [
   {
@@ -16,10 +25,32 @@ const MemberRoutes: RouteObject[] = [
       </RoleGuard>
     ),
     children: [
-      { index: true, element: <MemberAnalyticsPage /> },
-      { path: "bill-reciepts", element: <BillReceipts /> },
-      { path: "bill-notification", element: <MemberNotifications /> },
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <MemberAnalyticsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "bill-reciepts",
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <BillReceipts />
+          </Suspense>
+        ),
+      },
+      {
+        path: "bill-notification",
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <MemberNotifications />
+          </Suspense>
+        ),
+      },
     ],
   },
 ];
+
 export default MemberRoutes;

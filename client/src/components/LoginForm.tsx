@@ -1,63 +1,81 @@
-// src/components/auth/LoginForm.tsx
 import { Dumbbell } from "lucide-react";
-import z from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import api from "@/axios/axios-api";
 import { Field, FieldLabel } from "./ui/field";
+
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import {
+  signinSchema,
+  type SigninFormValues,
+} from "@/validators/auth/auth.schema";
+import { signinApi } from "@/api/auth/auth.api";
+import type { ApiError } from "@/types/api.types";
 
-const signinSchema = z.object({
-  email: z.string().email("Enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type SigninFormValues = z.infer<typeof signinSchema>;
-
-const signinApi = async (payload: SigninFormValues) => {
-  const { data } = await api.post("/auth/signin", payload, {
-    withCredentials: true,
-  });
-  return data;
-};
+/* --------------------------- COMPONENT --------------------------- */
 
 export function LoginForm() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<SigninFormValues>({
-    resolver: zodResolver(signinSchema),
-  });
   const navigate = useNavigate();
   const auth = useAuth();
+
+  const [form, setForm] = useState<SigninFormValues>({
+    email: "",
+    password: "",
+  });
+
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof SigninFormValues, string>>
+  >({});
+
+  /* --------------------------- MUTATION --------------------------- */
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: signinApi,
     onSuccess: (data) => {
-      reset();
-      // authContext.login(data.user)
       auth.login(data.user);
-      setTimeout(() => {
-        navigate(`/${data.user.role}`);
-      }, 3000);
+      toast.success(`Welcome back, ${data.user.name}`);
+      setForm({ email: "", password: "" });
+      setErrors({});
+      navigate(`/${data.user.role}`);
+    },
+    onError: (err: AxiosError<ApiError>) => {
+      toast.error(err.response?.data?.error ?? "Signin failed");
     },
   });
 
-  const onSubmit = (values: SigninFormValues) => {
-    mutate(values);
+  /* --------------------------- HANDLERS --------------------------- */
+
+  const handleChange = (key: keyof SigninFormValues, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const onSubmit = () => {
+    const result = signinSchema.safeParse(form);
+
+    if (!result.success) {
+      const fieldErrors: typeof errors = {};
+      result.error.issues.forEach((e) => {
+        const field = e.path[0] as keyof SigninFormValues;
+        fieldErrors[field] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
+    mutate(result.data);
+  };
+
+  /* ----------------------------- UI ------------------------------ */
+
   return (
-    <div className={"flex flex-col gap-6"}>
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
           <Dumbbell className="size-7 text-primary" />
@@ -68,13 +86,12 @@ export function LoginForm() {
         </p>
       </div>
 
-      {/* react form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div className="space-y-4">
         {/* Server error */}
         {error instanceof AxiosError && (
           <Alert variant="destructive">
             <AlertDescription>
-              {error.response?.data?.message || "Signin failed"}
+              {error.response?.data?.message ?? "Signin failed"}
             </AlertDescription>
           </Alert>
         )}
@@ -86,11 +103,12 @@ export function LoginForm() {
             id="email"
             type="email"
             placeholder="m@example.com"
-            {...register("email")}
+            value={form.email}
+            onChange={(e) => handleChange("email", e.target.value)}
             disabled={isPending}
           />
           {errors.email && (
-            <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+            <p className="mt-1 text-sm text-red-500">{errors.email}</p>
           )}
         </Field>
 
@@ -108,23 +126,27 @@ export function LoginForm() {
           <Input
             id="password"
             type="password"
-            {...register("password")}
+            value={form.password}
+            onChange={(e) => handleChange("password", e.target.value)}
             disabled={isPending}
           />
           {errors.password && (
-            <p className="text-sm text-red-500 mt-1">
-              {errors.password.message}
-            </p>
+            <p className="mt-1 text-sm text-red-500">{errors.password}</p>
           )}
         </Field>
 
         {/* Submit */}
         <Field>
-          <Button type="submit" disabled={isPending} className="w-full">
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={isPending}
+            className="w-full"
+          >
             {isPending ? "Signing in…" : "Login"}
           </Button>
         </Field>
-      </form>
+      </div>
 
       <p className="px-8 text-center text-sm text-muted-foreground">
         By continuing, you agree to our{" "}

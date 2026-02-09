@@ -18,7 +18,7 @@ export default function Dashboard() {
       <AppSidebar variant="inset" />
       <SidebarInset className="bg-background">
         <SiteHeader />
-        <div className="w-full  mx-auto p-6">
+        <div className="px-6 container mx-auto">
           <ErrorBoundary FallbackComponent={DashboardErrorBoundary}>
             {<Outlet />}
           </ErrorBoundary>

@@ -2,25 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import UpdateSupplement from "./update-supplement";
 import DeleteSupplement from "./delete-supplement";
-
-type ISupplement = {
-  _id: string;
-  imageUrl?: string;
-  productName: string;
-  category: string;
-  brand: string;
-  description: string;
-  price: number;
-  isAvailable: boolean;
-  createdAt: string;
-  stockQuantity: number;
-  unit: string;
-  updatedAt: string;
-};
-
-type SupplementCardProps = {
-  data: ISupplement;
-};
+import type { SupplementCardProps } from "@/types/supplement.types";
 
 export default function SupplementCard({ data }: SupplementCardProps) {
   return (
@@ -55,7 +37,7 @@ export default function SupplementCard({ data }: SupplementCardProps) {
         </div>
       </CardContent>
       <div className="absolute top-5 right-10 flex gap-4">
-        <UpdateSupplement supplementId={data._id} />
+        <UpdateSupplement supplementData={data} />
         <DeleteSupplement supplementId={data._id} />
       </div>
     </Card>

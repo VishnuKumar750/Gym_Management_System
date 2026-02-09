@@ -13,8 +13,9 @@ import { Button } from "./ui/button";
 import { Trash, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/axios/axios-api";
-
-/* ----------------------------- API ----------------------------- */
+import { toast } from "sonner";
+import type { AxiosError } from "axios";
+import type { ApiError } from "@/types/api.types";
 
 const deleteSupplement = async (id: string) => {
   const { data } = await api.delete(`/supplement/${id}`, {
@@ -22,8 +23,6 @@ const deleteSupplement = async (id: string) => {
   });
   return data;
 };
-
-/* ----------------------------- COMPONENT ----------------------------- */
 
 export default function DeleteSupplement({
   supplementId,
@@ -34,8 +33,12 @@ export default function DeleteSupplement({
 
   const mutation = useMutation({
     mutationFn: deleteSupplement,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["supplements"] });
+      toast.success(data.message ?? "supplement deleted successfully");
+    },
+    onError: (error: AxiosError<ApiError>) => {
+      toast.error(error?.response?.data?.error || "Delete failed");
     },
   });
 
@@ -66,6 +69,7 @@ export default function DeleteSupplement({
               variant="destructive"
               onClick={() => mutation.mutate(supplementId)}
               disabled={mutation.isPending}
+              className="text-white font-medium"
             >
               {mutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

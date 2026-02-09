@@ -1,8 +1,7 @@
-import { Edit, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { Edit, IndianRupee, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import api from "@/axios/axios-api";
 import { Button } from "./ui/button";
@@ -18,24 +17,35 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 /* ----------------------------- ZOD ----------------------------- */
 
 const updateSupplementSchema = z.object({
   price: z.number().min(0, "Price must be positive"),
   stockQuantity: z.number().min(0, "Stock must be positive"),
-  unit: z.string().min(1),
+  unit: z.string().min(1, "Unit is required"),
 });
 
 type UpdateSupplementValues = z.infer<typeof updateSupplementSchema>;
 
-/* ----------------------------- API ----------------------------- */
+interface ISupplment {
+  _id: string;
+  price: number;
+  stockQuantity: number;
+  unit: string;
+}
 
-const fetchSupplement = async (id: string) => {
-  const { data } = await api.get(`/supplement/${id}`, {
-    withCredentials: true,
-  });
-  return data.data;
+type SupplementData = {
+  supplementData: ISupplment;
 };
 
 const updateSupplement = async ({
@@ -53,64 +63,47 @@ const updateSupplement = async ({
 
 /* ----------------------------- COMPONENT ----------------------------- */
 
-export default function UpdateSupplement({
-  supplementId,
-}: {
-  supplementId: string;
-}) {
+export default function UpdateSupplement({ supplementData }: SupplementData) {
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["supplement", supplementId],
-    queryFn: () => fetchSupplement(supplementId),
-    enabled: !!supplementId,
+  const [formData, setFormData] = useState<UpdateSupplementValues>({
+    price: supplementData.price ?? 0,
+    stockQuantity: supplementData.stockQuantity ?? 0,
+    unit: supplementData.unit ?? "",
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
     mutationFn: updateSupplement,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplements"] });
       queryClient.invalidateQueries({
-        queryKey: ["supplement", supplementId],
+        queryKey: ["supplement", supplementData._id],
       });
     },
   });
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<UpdateSupplementValues>({
-    resolver: zodResolver(updateSupplementSchema),
-    values: data
-      ? {
-          price: data.price,
-          stockQuantity: data.stockQuantity,
-          unit: data.unit,
-        }
-      : undefined,
-  });
+  const handleSubmit = () => {
+    const result = updateSupplementSchema.safeParse(formData);
 
-  const onSubmit = (values: UpdateSupplementValues) => {
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((e) => {
+        fieldErrors[e.path.join(".")] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
     mutation.mutate({
-      id: supplementId,
-      payload: values,
+      id: supplementData._id,
+      payload: result.data,
     });
   };
 
   return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (open && data) {
-          reset({
-            price: data.price,
-            stockQuantity: data.stockQuantity,
-            unit: data.unit,
-          });
-        }
-      }}
-    >
+    <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="icon">
           <Edit className="w-4 h-4" />
@@ -118,75 +111,102 @@ export default function UpdateSupplement({
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-sm">
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogHeader>
-            <DialogTitle>Edit Supplement</DialogTitle>
-            <DialogDescription>
-              Update stock and pricing information
-            </DialogDescription>
-          </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Edit Supplement</DialogTitle>
+          <DialogDescription>
+            Update stock and pricing information
+          </DialogDescription>
+        </DialogHeader>
 
-          {isLoading ? (
-            <div className="py-6 text-sm text-muted-foreground">
-              Loading supplement…
-            </div>
-          ) : (
-            <div className="space-y-4 py-4">
-              {/* Price */}
-              <div>
-                <Label>Price</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  {...register("price", { valueAsNumber: true })}
-                />
-                {errors.price && (
-                  <p className="text-sm text-destructive">
-                    {errors.price.message}
-                  </p>
-                )}
-              </div>
+        <div className="space-y-4 py-4">
+          {/* Price */}
+          <div className="space-y-2">
+            <Label>
+              Price <IndianRupee className="w-4 h-4 text-muted-foreground" />
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={formData.price}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  price: Number(e.target.value),
+                })
+              }
+            />
+            {errors.price && (
+              <p className="text-sm text-destructive">{errors.price}</p>
+            )}
+          </div>
 
-              {/* Stock */}
-              <div>
-                <Label>Stock Quantity</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  {...register("stockQuantity", {
-                    valueAsNumber: true,
-                  })}
-                />
-                {errors.stockQuantity && (
-                  <p className="text-sm text-destructive">
-                    {errors.stockQuantity.message}
-                  </p>
-                )}
-              </div>
+          {/* Stock */}
+          <div className="space-y-2">
+            <Label>Stock Quantity</Label>
+            <Input
+              type="number"
+              min={0}
+              value={formData.stockQuantity}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  stockQuantity: Number(e.target.value),
+                })
+              }
+            />
+            {errors.stockQuantity && (
+              <p className="text-sm text-destructive">{errors.stockQuantity}</p>
+            )}
+          </div>
 
-              {/* Unit */}
-              <div>
-                <Label>Unit</Label>
-                <Input {...register("unit")} />
-              </div>
-            </div>
-          )}
+          {/* Unit */}
+          <div className="space-y-2">
+            <Label>Unit</Label>
+            <Select
+              value={formData.unit}
+              onValueChange={(v) =>
+                setFormData({
+                  ...formData,
+                  unit: v,
+                })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="select unit for product" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>select unit for product</SelectLabel>
+                  <SelectItem value="piece">Piece</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {errors.unit && (
+              <p className="text-sm text-destructive">{errors.unit}</p>
+            )}
+          </div>
+        </div>
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                Cancel
-              </Button>
-            </DialogClose>
-
-            <Button type="submit" disabled={mutation.isPending || isLoading}>
-              {mutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Save changes
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" type="button">
+              Cancel
             </Button>
-          </DialogFooter>
-        </form>
+          </DialogClose>
+
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save changes
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
