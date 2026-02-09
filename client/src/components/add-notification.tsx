@@ -1,10 +1,8 @@
-"use client";
-
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellPlus, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { z } from "zod";
 
 import {
   Sheet,
@@ -18,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -30,51 +27,56 @@ import api from "@/axios/axios-api";
 
 /* ----------------------------- ZOD SCHEMA ----------------------------- */
 
-const notificationSchema = z
-  .object({
-    title: z.string().min(3),
-    message: z.string().min(5),
-    type: z.enum([
-      "payment_due",
-      "payment_received",
-      "general",
-      "holiday",
-      "event",
-      "urgent",
-    ]),
-    targetAudience: z.enum(["all", "active_members", "specific"]),
-    recipients: z.array(z.string()).optional(),
-    scheduledDate: z.date().optional(),
-  })
-  .refine(
-    (data) =>
-      data.targetAudience !== "specific" ||
-      (data.recipients && data.recipients.length > 0),
-    {
-      message: "Select at least one member",
-      path: ["recipients"],
-    },
-  );
+const notificationSchema = z.object({
+  title: z.string().min(3, "Title is required"),
+  message: z.string().min(5, "Message is required"),
+  type: z.enum([
+    "payment_due",
+    "payment_received",
+    "general",
+    "holiday",
+    "event",
+    "urgent",
+  ]),
+  recipient: z.string().min(1, "Member is required"),
+});
 
 type NotificationFormValues = z.infer<typeof notificationSchema>;
 
 /* ----------------------------- API CALLS ------------------------------ */
 
-const fetchMembers = async () => {
-  const { data } = await api.get("/user/members?status=active");
-  return data.data.users; // [{ _id, name }]
+type Member = {
+  _id: string;
+  name: string;
+  memberId: string;
 };
 
-const createNotification = async (payload: any) => {
+const fetchMembers = async (): Promise<Member[]> => {
+  const { data } = await api.get("/user/members?status=active");
+  return data.data;
+};
+
+const createNotification = async (payload: NotificationFormValues) => {
   const { data } = await api.post("/notification", payload);
-  console.log(data);
   return data;
 };
 
 /* ------------------------------ COMPONENT ----------------------------- */
 
 export default function AddNotification() {
+  const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  const [form, setForm] = useState<NotificationFormValues>({
+    title: "",
+    message: "",
+    type: "general",
+    recipient: "",
+  });
+
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof NotificationFormValues, string>>
+  >({});
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
@@ -83,51 +85,43 @@ export default function AddNotification() {
 
   const mutation = useMutation({
     mutationFn: createNotification,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      toast.success(data?.message ?? "Notification created");
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      setForm({
+        title: "",
+        message: "",
+        type: "general",
+        recipient: "",
+      });
+      setErrors({});
+      setOpen(false);
     },
   });
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<NotificationFormValues>({
-    resolver: zodResolver(notificationSchema),
-    defaultValues: {
-      title: "",
-      message: "",
-      type: "general",
-      targetAudience: "all",
-      recipients: [],
-    },
-  });
-
-  const targetAudience = watch("targetAudience");
-  const recipients = watch("recipients") || [];
-
-  const toggleRecipient = (id: string) => {
-    setValue(
-      "recipients",
-      recipients.includes(id)
-        ? recipients.filter((r) => r !== id)
-        : [...recipients, id],
-    );
+  const handleChange = (key: keyof NotificationFormValues, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onSubmit = (values: NotificationFormValues) => {
-    mutation.mutate({
-      ...values,
-      scheduledDate: values.scheduledDate
-        ? values.scheduledDate.toISOString()
-        : null,
-    });
+  const onSubmit = () => {
+    const result = notificationSchema.safeParse(form);
+
+    if (!result.success) {
+      const fieldErrors: typeof errors = {};
+      result.error.issues.forEach((e) => {
+        const field = e.path[0] as keyof NotificationFormValues;
+        fieldErrors[field] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
+    mutation.mutate(result.data);
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline">
           <BellPlus className="w-4 h-4 mr-2" />
@@ -135,41 +129,46 @@ export default function AddNotification() {
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="space-y-6 px-4 overflow-auto">
+      <SheetContent className="overflow-auto">
         <SheetHeader>
           <SheetTitle>Add Notification</SheetTitle>
-          <SheetDescription>Send notifications to gym members</SheetDescription>
+          <SheetDescription>Send notification to a member</SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-4 px-4">
           {/* Title */}
-          <div>
+          <div className="space-y-2">
             <Label>Title</Label>
-            <Input {...register("title")} />
+            <Input
+              value={form.title}
+              onChange={(e) => handleChange("title", e.target.value)}
+            />
             {errors.title && (
-              <p className="text-sm text-destructive">{errors.title.message}</p>
+              <p className="text-sm text-destructive">{errors.title}</p>
             )}
           </div>
 
           {/* Message */}
-          <div>
+          <div className="space-y-2">
             <Label>Message</Label>
-            <Textarea rows={4} {...register("message")} />
+            <Textarea
+              rows={4}
+              value={form.message}
+              onChange={(e) => handleChange("message", e.target.value)}
+            />
             {errors.message && (
-              <p className="text-sm text-destructive">
-                {errors.message.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.message}</p>
             )}
           </div>
 
           {/* Type */}
-          <div>
+          <div className="space-y-2">
             <Label>Type</Label>
             <Select
-              defaultValue="general"
-              onValueChange={(v) => setValue("type", v as any)}
+              value={form.type}
+              onValueChange={(v) => handleChange("type", v)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -185,62 +184,33 @@ export default function AddNotification() {
             </Select>
           </div>
 
-          {/* Audience */}
-          <div>
-            <Label>Target Audience</Label>
+          {/* Member */}
+          <div className="space-y-2">
+            <Label>Member</Label>
             <Select
-              defaultValue="all"
-              onValueChange={(v) => setValue("targetAudience", v as any)}
+              value={form.recipient}
+              onValueChange={(v) => handleChange("recipient", v)}
             >
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select member" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Members</SelectItem>
-                <SelectItem value="active_members">Active Members</SelectItem>
-                <SelectItem value="specific">Specific Members</SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m._id} value={m._id}>
+                    {m.name} – {m.memberId}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {errors.recipient && (
+              <p className="text-sm text-destructive">{errors.recipient}</p>
+            )}
           </div>
 
-          {/* Specific Members */}
-          {targetAudience === "specific" && (
-            <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
-              <Label>Select Members</Label>
-              {members.map((m: any) => (
-                <div key={m._id} className="flex items-center gap-2">
-                  <Checkbox
-                    checked={recipients.includes(m._id)}
-                    onCheckedChange={() => toggleRecipient(m._id)}
-                  />
-                  <span className="text-sm">{m.name}</span>
-                </div>
-              ))}
-              {errors.recipients && (
-                <p className="text-sm text-destructive">
-                  {errors.recipients.message}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Schedule */}
-          <div>
-            <Label>Schedule (optional)</Label>
-            <Input
-              type="datetime-local"
-              onChange={(e) =>
-                setValue(
-                  "scheduledDate",
-                  e.target.value ? new Date(e.target.value) : undefined,
-                )
-              }
-            />
-          </div>
-
+          {/* Submit */}
           <Button
-            type="submit"
             className="w-full"
+            onClick={onSubmit}
             disabled={mutation.isPending}
           >
             {mutation.isPending && (
@@ -248,7 +218,7 @@ export default function AddNotification() {
             )}
             Send Notification
           </Button>
-        </form>
+        </div>
       </SheetContent>
     </Sheet>
   );

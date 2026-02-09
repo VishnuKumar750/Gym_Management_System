@@ -8,34 +8,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "./ui/sheet";
-import api from "@/axios/axios-api";
-import { useQuery } from "@tanstack/react-query";
-
-const getDietById = async (dietId: string) => {
-  const { data } = await api.get(`/dietPlan/${dietId}`, {
-    withCredentials: true,
-  });
-
-  return data.data; // adjust if backend wraps response
-};
+import type { MemberDiet } from "@/validators/diet.schema";
 
 interface Props {
-  dietId: string;
+  diet: MemberDiet;
 }
 
-export default function ViewDiet({ dietId }: Props) {
-  const {
-    data: diet,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["diet", dietId],
-    queryFn: () => getDietById(dietId),
-    enabled: !!dietId,
-    staleTime: 5 * 60 * 1000,
-  });
-
+export default function ViewDiet({ diet }: Props) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -45,7 +24,7 @@ export default function ViewDiet({ dietId }: Props) {
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="px-4 overflow-y-auto">
+      <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{diet?.planName || "Diet Plan"}</SheetTitle>
           <SheetDescription>
@@ -53,23 +32,23 @@ export default function ViewDiet({ dietId }: Props) {
           </SheetDescription>
         </SheetHeader>
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            Loading diet plan…
-          </div>
-        )}
-
-        {/* Error */}
-        {isError && (
-          <div className="py-10 text-center text-sm text-destructive">
-            {(error as Error)?.message || "Failed to load diet"}
-          </div>
-        )}
-
         {/* Diet Content */}
         {diet && (
-          <div className="mt-6 space-y-6">
+          <div className="space-y-6 px-4">
+            <section className="space-y-2">
+              <h4 className="font-medium">Member</h4>
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  <span className="font-medium text-foreground">Duration:</span>{" "}
+                  {diet.member.name}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Status:</span>{" "}
+                  {diet.isActive ? "Active" : "Inactive"}
+                </p>
+              </div>
+            </section>
+
             {/* Overview */}
             <section className="space-y-2">
               <h4 className="font-medium">Overview</h4>
@@ -99,33 +78,6 @@ export default function ViewDiet({ dietId }: Props) {
                 </div>
               </section>
             )}
-
-            {/* Meals */}
-            <section className="space-y-4">
-              <h4 className="font-medium">Meals</h4>
-
-              {diet.meals.map((meal: any, index: number) => (
-                <div key={index} className="rounded-md border p-3 space-y-2">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="capitalize">{meal.mealType}</span>
-                    {meal.time && <span>{meal.time}</span>}
-                  </div>
-
-                  <div className="space-y-1 text-sm">
-                    {meal.items.map((item: any, itemIndex: number) => (
-                      <div key={itemIndex} className="flex justify-between">
-                        <span>
-                          {item.food} ({item.quantity})
-                        </span>
-                        <span>
-                          {item.calories ? `${item.calories} cal` : "--"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
 
             {/* Notes */}
             {diet.notes && (

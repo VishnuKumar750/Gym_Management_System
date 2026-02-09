@@ -1,14 +1,29 @@
+import { lazy, Suspense } from "react";
 import type { RouteObject } from "react-router-dom";
 
-// page
+// layout
 import LandingLayout from "@/components/layout/landing.layout";
-import LandingPage from "@/features/common/pages/Landing.pages";
+
+/* ---------------------- Lazy Pages ---------------------- */
+
+const LandingPage = lazy(() => import("@/features/common/Landing.pages"));
+
+/* ------------------------ Routes ------------------------ */
 
 const PublicRoutes: RouteObject[] = [
   {
     path: "/",
     element: <LandingLayout />,
-    children: [{ index: true, element: <LandingPage /> }],
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <LandingPage />
+          </Suspense>
+        ),
+      },
+    ],
   },
 ];
 

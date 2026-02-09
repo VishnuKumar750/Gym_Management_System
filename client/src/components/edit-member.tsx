@@ -1,288 +1,182 @@
 import { Edit } from "lucide-react";
-import { Button } from "./ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { useState } from "react";
+import { z } from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { AxiosError } from "axios";
 
 import api from "@/axios/axios-api";
-import { z } from "zod";
+import type { ApiError } from "@/types/api.types";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { Button } from "./ui/button";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSet,
-} from "./ui/field";
-import { Input } from "./ui/input";
-import { useState } from "react";
+/* ----------------------------- SCHEMA ----------------------------- */
 
-/* -------------------- SCHEMA -------------------- */
-const updateUserSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").trim(),
-  email: z.string().email("Invalid email address").toLowerCase(),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .optional(),
-  phone: z.string().min(10, "Phone number is required"),
-  address: z
-    .object({
-      street: z.string().optional(),
-      city: z.string().optional(),
-      state: z.string().optional(),
-      zipCode: z.string().optional(),
-    })
-    .optional(),
-  dateOfBirth: z.string().optional(),
-  gender: z.enum(["male", "female", "other"]).optional(),
-  status: z.enum(["active", "inactive", "suspended"]),
-  assignedPackage: z.string().optional(),
-});
+const updateUserSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email"),
+    phone: z.string().min(10, "Phone is required"),
+    status: z.enum(["active", "inactive", "suspended"]),
+  })
+  .partial();
 
 type UserFormValues = z.infer<typeof updateUserSchema>;
+type MemberStatus = "active" | "inactive" | "suspended";
 
-/* -------------------- API -------------------- */
-const getMemberById = async (memberId: string) => {
-  const res = await api.get(`/user/members/${memberId}`, {
+type Props = {
+  memberData: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    status?: MemberStatus;
+  };
+};
+
+/* ----------------------------- API ----------------------------- */
+
+const updateMember = async ({
+  id,
+  data,
+}: {
+  id: string;
+  data: Partial<UserFormValues>;
+}) => {
+  const res = await api.put(`/user/members/${id}`, data, {
     withCredentials: true,
   });
   return res.data;
 };
 
-const updateMember = async ({
-  memberId,
-  data,
-}: {
-  memberId: string;
-  data: UserFormValues;
-}) => {
-  if (!data.password) delete data.password;
+/* --------------------------- COMPONENT --------------------------- */
 
-  const res = await api.put(`/users/members/${memberId}`, data, {
-    withCredentials: true,
-  });
-  return res.data.data.users;
-};
-
-const getPackages = async () => {
-  const res = await api.get("/packages", { withCredentials: true });
-  return res.data.data.packages;
-};
-
-/* -------------------- COMPONENT -------------------- */
-export default function EditMember({ memberId }: { memberId: string }) {
+export default function EditMemberSimple({ memberData }: Props) {
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
 
-  const form = useForm<UserFormValues>({
-    resolver: zodResolver(updateUserSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      status: "active",
-      address: {},
-    },
+  const [form, setForm] = useState<UserFormValues>({
+    name: memberData.name ?? "",
+    email: memberData.email ?? "",
+    phone: memberData.phone ?? "",
+    status: memberData.status ?? "active",
   });
 
-  /* Fetch member */
-  useQuery({
-    queryKey: ["member", memberId],
-    queryFn: () => getMemberById(memberId),
-    enabled: !!memberId,
-    staleTime: 5 * 60 * 1000,
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof UserFormValues, string>>
+  >({});
+
+  const mutation = useMutation({
+    mutationFn: updateMember,
     onSuccess: (data) => {
-      console.log("user data", data);
-      form.reset({
-        name: data.name ?? "",
-        email: data.email ?? "",
-        phone: data.phone ?? "",
-        status: data.status ?? "active",
-        gender: data.gender ?? undefined,
-        assignedPackage: data.assignedPackage ?? "",
-        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split("T")[0] : "",
-        address: {
-          street: data.address?.street ?? "",
-          city: data.address?.city ?? "",
-          state: data.address?.state ?? "",
-          zipCode: data.address?.zipCode ?? "",
-        },
+      toast.success(data.message ?? "Member updated");
+      setErrors({});
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({
+        queryKey: ["member", memberData._id],
       });
     },
-  });
-
-  /* Fetch packages */
-  const { data: packages = [], isLoading: packagesLoading } = useQuery({
-    queryKey: ["packages"],
-    queryFn: getPackages,
-  });
-
-  /* Update mutation */
-  const mutation = useMutation({
-    mutationFn: (data: UserFormValues) => updateMember({ memberId, data }),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["members"] });
-      queryClient.invalidateQueries({ queryKey: ["member", memberId] });
-    },
-
-    onError: (error: any) => {
-      const res = error?.response?.data;
-
-      if (res?.field && res?.message) {
-        form.setError(res.field as any, {
-          type: "server",
-          message: res.message,
-        });
-        return;
-      }
-
-      if (res?.errors) {
-        Object.entries(res.errors).forEach(([field, message]) => {
-          form.setError(field as any, {
-            type: "server",
-            message: String(message),
-          });
-        });
-      }
+    onError: (err: AxiosError<ApiError>) => {
+      toast.error(err?.response?.data?.error ?? "Update failed");
     },
   });
 
-  const onSubmit = (data: UserFormValues) => {
-    mutation.mutate(data);
+  const handleChange = (key: keyof UserFormValues, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onSubmit = () => {
+    const result = updateUserSchema.safeParse(form);
+
+    if (!result.success) {
+      const fieldErrors: typeof errors = {};
+      result.error.issues.forEach((e) => {
+        const field = e.path[0] as keyof UserFormValues;
+        fieldErrors[field] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
+    mutation.mutate({
+      id: memberData._id,
+      data: result.data,
+    });
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" className="w-full justify-start">
-          <Edit className="mr-2 h-4 w-4" />
+        <Button variant="ghost" className="gap-2">
+          <Edit className="w-4 h-4" />
           Edit Member
         </Button>
       </SheetTrigger>
 
-      <SheetContent>
-        {/* ✅ FULL FORM — UNCHANGED UI */}
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="p-4 overflow-auto"
-        >
-          <FieldSet>
-            <FieldGroup>
-              <Field>
-                <FieldLabel>Name</FieldLabel>
-                <Input {...form.register("name")} />
-                {form.formState.errors.name && (
-                  <FieldDescription className="text-red-500">
-                    {form.formState.errors.name.message}
-                  </FieldDescription>
-                )}
-              </Field>
+      <SheetContent className="p-0">
+        <div className="max-w-md space-y-4 p-4">
+          <h2 className="text-lg font-semibold">Edit Member</h2>
 
-              <Field>
-                <FieldLabel>Email</FieldLabel>
-                <Input type="email" {...form.register("email")} />
-                {form.formState.errors.email && (
-                  <FieldDescription className="text-red-500">
-                    {form.formState.errors.email.message}
-                  </FieldDescription>
-                )}
-              </Field>
+          {/* Name */}
+          <div>
+            <input
+              className="w-full border px-3 py-2 rounded"
+              placeholder="Name"
+              value={form.name ?? ""}
+              onChange={(e) => handleChange("name", e.target.value)}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
+          </div>
 
-              <Field>
-                <FieldLabel>Password</FieldLabel>
-                <Input type="password" {...form.register("password")} />
-              </Field>
+          {/* Email */}
+          <div>
+            <input
+              className="w-full border px-3 py-2 rounded"
+              placeholder="Email"
+              value={form.email ?? ""}
+              onChange={(e) => handleChange("email", e.target.value)}
+            />
+            {errors.email && (
+              <p className="text-sm text-red-500">{errors.email}</p>
+            )}
+          </div>
 
-              <Field>
-                <FieldLabel>Phone</FieldLabel>
-                <Input {...form.register("phone")} />
-                {form.formState.errors.phone && (
-                  <FieldDescription className="text-red-500">
-                    {form.formState.errors.phone.message}
-                  </FieldDescription>
-                )}
-              </Field>
+          {/* Phone */}
+          <div>
+            <input
+              className="w-full border px-3 py-2 rounded"
+              placeholder="Phone"
+              value={form.phone ?? ""}
+              onChange={(e) => handleChange("phone", e.target.value)}
+            />
+            {errors.phone && (
+              <p className="text-sm text-red-500">{errors.phone}</p>
+            )}
+          </div>
 
-              <Field>
-                <FieldLabel>Date of Birth</FieldLabel>
-                <Input type="date" {...form.register("dateOfBirth")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Gender</FieldLabel>
-                <select
-                  className="border rounded px-3 py-2 w-full"
-                  {...form.register("gender")}
-                >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </Field>
-
-              <Field>
-                <FieldLabel>Status</FieldLabel>
-                <select
-                  className="border rounded px-3 py-2 w-full"
-                  {...form.register("status")}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </Field>
-
-              <Field>
-                <FieldLabel>Street</FieldLabel>
-                <Input {...form.register("address.street")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>City</FieldLabel>
-                <Input {...form.register("address.city")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>State</FieldLabel>
-                <Input {...form.register("address.state")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Zip Code</FieldLabel>
-                <Input {...form.register("address.zipCode")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Assigned Package</FieldLabel>
-                <select
-                  className="border rounded px-3 py-2 w-full"
-                  {...form.register("assignedPackage")}
-                  disabled={packagesLoading}
-                >
-                  <option value="">
-                    {packagesLoading ? "Loading..." : "Select package"}
-                  </option>
-                  {packages.map((pkg: any) => (
-                    <option key={pkg._id} value={pkg._id}>
-                      {pkg.packageName}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </FieldGroup>
-          </FieldSet>
+          {/* Status */}
+          <select
+            className="w-full border px-3 py-2 rounded"
+            value={form.status}
+            onChange={(e) => handleChange("status", e.target.value)}
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
 
           <Button
-            type="submit"
-            className="w-full mt-6"
+            className="w-full py-2 font-medium tracking-tight"
+            onClick={onSubmit}
             disabled={mutation.isPending}
           >
             {mutation.isPending ? "Updating..." : "Update Member"}
           </Button>
-        </form>
+        </div>
       </SheetContent>
     </Sheet>
   );

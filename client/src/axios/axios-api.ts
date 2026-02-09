@@ -5,8 +5,6 @@ const api = axios.create({
   baseURL: "http://localhost:4000/api/v1/",
   timeout: 10000,
   withCredentials: true,
-  maxContentLength: 2000,
-  maxBodyLength: 2000,
 });
 
 // create axios interceptor

@@ -1,10 +1,11 @@
 import morgan from 'morgan'
 import { logger } from '@/utils/logger'
+import { Request } from 'express'
 
 // custom tokens
 morgan.token('userId', (req: any) => req.user?.id || 'anonymous')
 morgan.token('role', (req: any) => req.user?.role || 'guest')
-morgan.token('operation', (req) => `${req.method} ${req.originalUrl}`)
+morgan.token('operation', (req: Request) => `${req.method} ${req.originalUrl}`)
 morgan.token('error', (_req, res: any) => res.locals?.errorMessage || null)
 
 export const morganLogger = morgan((tokens, req: any, res: any) => {

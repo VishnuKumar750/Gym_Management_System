@@ -1,3 +1,3 @@
-export default function EditStaff({ staffId: string }) {
+export default function EditStaff() {
   return <div>edit staff</div>;
 }

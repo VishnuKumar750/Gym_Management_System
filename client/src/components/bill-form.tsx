@@ -1,13 +1,10 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Loader2, Check, CirclePlus } from "lucide-react";
-import { useEffect, useState } from "react";
-
+import { Loader2, CirclePlus } from "lucide-react";
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -15,121 +12,119 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "./ui/select";
-import { FieldSet, Field, FieldLabel } from "./ui/field";
 import api from "@/axios/axios-api";
+import type { AxiosError } from "axios";
+import { toast } from "sonner";
+import { Label } from "./ui/label";
+import { z } from "zod";
+import type { ApiError } from "@/types/api.types";
+import SelectPackage from "./select-package";
+import SelectMmeber from "./select-member";
+import SelectPaymentMethod from "./select-payment-method";
+import SelectStatus from "./select-status";
 
-/* ---------------- Zod Schema ---------------- */
+/* ---------------- SCHEMA ---------------- */
 
 const billSchema = z.object({
-  member: z.string().min(1, "Member is required"),
-  package: z.string().min(1, "Package is required"),
-
-  amount: z.coerce.number().min(0),
-  discount: z.coerce.number().min(0).default(0),
-  taxAmount: z.coerce.number().min(0).default(0),
-
-  paymentDate: z.coerce.date(),
-  paymentMethod: z.enum(["cash", "card", "upi", "netbanking", "other"]),
-
-  validFrom: z.coerce.date(),
-  validUntil: z.coerce.date(),
-
+  memberId: z.string().min(1),
+  packageId: z.string().min(1),
+  discount: z.number().min(0),
+  taxAmount: z.number().min(0),
+  paymentDate: z.string().optional(),
+  paymentMethod: z
+    .enum(["cash", "card", "upi", "netbanking", "other"])
+    .optional(),
   status: z.enum(["paid", "pending", "overdue", "cancelled"]),
-  remarks: z.string().optional(),
+  remarks: z.string(),
 });
 
 type BillFormValues = z.infer<typeof billSchema>;
 
-/* ---------------- API ---------------- */
-
-// api function
-const fetchMembers = async () => {
-  const { data } = await api.get("/user/members", {
-    withCredentials: true,
-  });
-  return data.data.users;
-};
+const billStatus = ["paid", "pending", "overdue", "cancelled"] as const;
 
 const fetchPackages = async () => {
-  const { data } = await api.get("/packages", {
-    withCredentials: true,
-  });
-
-  return data.data.packages;
+  const { data } = await api.get("/packages", { withCredentials: true });
+  return data.data;
 };
 
 const createBill = async (data: BillFormValues) => {
-  const res = await api.post("/bills", data, { withCredentials: true });
+  const res = await api.post("/bills/admin", data, { withCredentials: true });
   return res.data;
 };
 
-/* ---------------- Component ---------------- */
+/* ---------------- COMPONENT ---------------- */
 
 export default function BillForm() {
-  const [isSuccess, setIsSuccess] = useState(false);
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
 
-  const { data: members = [] } = useQuery({
-    queryKey: ["members"],
-    queryFn: fetchMembers,
+  const [formData, setFormData] = useState<BillFormValues>({
+    memberId: "",
+    packageId: "",
+    discount: 0,
+    taxAmount: 0,
+    paymentDate: "",
+    paymentMethod: undefined,
+    status: "pending",
+    remarks: "",
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: packages = [] } = useQuery({
     queryKey: ["packages"],
     queryFn: fetchPackages,
   });
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<BillFormValues>({
-    resolver: zodResolver(billSchema),
-    defaultValues: {
-      amount: 0,
-      discount: 0,
-      taxAmount: 0,
-      paymentMethod: "cash",
-      status: "paid",
-    },
-  });
+  const selectedPackage = packages.find(
+    (p: Record<string, string>) => p._id === formData.packageId,
+  );
+  const amount = selectedPackage?.price ?? 0;
+
+  const taxableAmount = Math.max(amount - formData.discount, 0);
+  const taxValue = (taxableAmount * formData.taxAmount) / 100;
+  const finalAmount = Math.round((taxableAmount + taxValue) * 100) / 100;
 
   const mutation = useMutation({
     mutationFn: createBill,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      toast.success(data?.message ?? "Bill added successfully");
       queryClient.invalidateQueries({ queryKey: ["bills"] });
-      setIsSuccess(true);
-      reset();
+      setFormData({
+        memberId: "",
+        packageId: "",
+        discount: 0,
+        taxAmount: 0,
+        paymentDate: "",
+        paymentMethod: undefined,
+        status: "pending",
+        remarks: "",
+      });
+      setErrors({});
+      setOpen(false);
+    },
+    onError: (err: AxiosError<ApiError>) => {
+      toast.error(err?.response?.data?.error ?? "Add bill failed");
     },
   });
 
-  useEffect(() => {
-    if (!isSuccess) return;
-    const t = setTimeout(() => setIsSuccess(false), 3000);
-    return () => clearTimeout(t);
-  }, [isSuccess]);
+  const handleSubmit = () => {
+    const result = billSchema.safeParse(formData);
 
-  const amount = watch("amount") || 0;
-  const discount = watch("discount") || 0;
-  const taxAmount = watch("taxAmount") || 0;
-  const finalAmount = Math.max(amount - discount + taxAmount, 0);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((e) => {
+        fieldErrors[e.path.join(".")] = e.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
 
-  const onSubmit = (data: BillFormValues) => {
-    mutation.mutate(data);
+    mutation.mutate(result.data);
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" className="gap-2">
           <CirclePlus className="w-4 h-4" />
@@ -140,162 +135,135 @@ export default function BillForm() {
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Add Bill</SheetTitle>
+          <SheetDescription>fill the form to add bill</SheetDescription>
         </SheetHeader>
 
-        {isSuccess && (
-          <div className="my-4 rounded-md bg-primary text-primary-foreground px-4 py-3 text-sm">
-            <Check className="inline w-4 h-4 mr-2" />
-            Bill created successfully
+        <form className="px-4 space-y-4">
+          {/* MEMBER */}
+          <div className="space-y-2">
+            <Label>Member</Label>
+            <SelectMmeber
+              value={formData.memberId}
+              onChange={(v) => setFormData({ ...formData, memberId: v })}
+            />
+            {errors.memberId && (
+              <p className="text-sm text-red-500">{errors.memberId}</p>
+            )}
           </div>
-        )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="px-4">
-          <FieldSet>
-            {/* Member */}
-            <Field>
-              <FieldLabel>Member</FieldLabel>
-              <Select onValueChange={(v) => setValue("member", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map((m: any) => (
-                    <SelectItem key={m._id} value={m._id}>
-                      {m.name} ({m.memberId})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.member && (
-                <p className="text-xs text-destructive">
-                  {errors.member.message}
-                </p>
-              )}
-            </Field>
+          {/* PACKAGE */}
+          <div className="space-y-2">
+            <Label>Package</Label>
+            <SelectPackage
+              value={formData.packageId}
+              onChange={(v) => setFormData({ ...formData, packageId: v })}
+            />
+            {errors.packageId && (
+              <p className="text-sm text-red-500">{errors.packageId}</p>
+            )}
+          </div>
 
-            {/* Package */}
-            <Field>
-              <FieldLabel>Package</FieldLabel>
-              <Select onValueChange={(v) => setValue("package", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select package" />
-                </SelectTrigger>
-                <SelectContent>
-                  {packages.map((p: any) => (
-                    <SelectItem key={p._id} value={p._id}>
-                      {p.packageName} – ₹{p.price}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.package && (
-                <p className="text-xs text-destructive">
-                  {errors.package.message}
-                </p>
-              )}
-            </Field>
-
-            {/* Amounts */}
-            <div className="grid grid-cols-3 gap-4">
-              <Field>
-                <FieldLabel>Amount</FieldLabel>
-                <Input type="number" {...register("amount")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Discount</FieldLabel>
-                <Input type="number" {...register("discount")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Final</FieldLabel>
-                <div className="h-10 flex items-center rounded-md border bg-muted px-3 font-medium">
-                  ₹{finalAmount.toFixed(2)}
-                </div>
-              </Field>
+          {/* AMOUNTS */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input readOnly value={amount} className="bg-muted" />
             </div>
-
-            {/* Payment */}
-            <div className="grid grid-cols-2 gap-4">
-              <Field>
-                <FieldLabel>Payment Date</FieldLabel>
-                <Input type="date" {...register("paymentDate")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Payment Method</FieldLabel>
-                <Select
-                  defaultValue="cash"
-                  onValueChange={(v) => setValue("paymentMethod", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="netbanking">Net Banking</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
+            <div className="space-y-2">
+              <Label>Discount</Label>
+              <Input
+                type="number"
+                value={formData.discount}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    discount: Number(e.target.value),
+                  })
+                }
+              />
             </div>
-
-            {/* Validity */}
-            <div className="grid grid-cols-2 gap-4">
-              <Field>
-                <FieldLabel>Valid From</FieldLabel>
-                <Input type="date" {...register("validFrom")} />
-              </Field>
-
-              <Field>
-                <FieldLabel>Valid Until</FieldLabel>
-                <Input type="date" {...register("validUntil")} />
-              </Field>
+            <div className="space-y-2">
+              <Label>Tax %</Label>
+              <Input
+                type="number"
+                value={formData.taxAmount}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    taxAmount: Number(e.target.value),
+                  })
+                }
+              />
             </div>
+            <div className="space-y-2">
+              <Label>Final Amount</Label>
+              <Input readOnly value={finalAmount} className="bg-muted" />
+            </div>
+          </div>
 
-            {/* Status */}
-            <Field>
-              <FieldLabel>Status</FieldLabel>
-              <Select
-                defaultValue="paid"
-                onValueChange={(v) => setValue("status", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+          {/* PAYMENT */}
+          <div className="space-y-2">
+            <Label>Payment Date</Label>
+            <Input
+              type="date"
+              value={formData.paymentDate}
+              onChange={(e) =>
+                setFormData({ ...formData, paymentDate: e.target.value })
+              }
+            />
+          </div>
 
-            {/* Remarks */}
-            <Field>
-              <FieldLabel>Remarks</FieldLabel>
-              <Textarea rows={3} {...register("remarks")} />
-            </Field>
+          <div className="space-y-2">
+            <Label>Payment Method</Label>
+            <SelectPaymentMethod
+              value={formData.paymentMethod}
+              onChange={(v) =>
+                setFormData({
+                  ...formData,
+                  paymentMethod: v as BillFormValues["paymentMethod"],
+                })
+              }
+            />
+          </div>
 
-            {/* Submit */}
-            <Button
-              type="submit"
-              disabled={mutation.isPending}
-              className="w-full"
-            >
-              {mutation.isPending ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating…
-                </span>
-              ) : (
-                "Create Bill"
-              )}
-            </Button>
-          </FieldSet>
+          {/* STATUS */}
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <SelectStatus
+              value={formData.status}
+              onChange={(v) =>
+                setFormData({
+                  ...formData,
+                  status: v as BillFormValues["status"],
+                })
+              }
+              list={billStatus}
+              placeholder="select status"
+            />
+          </div>
+
+          {/* REMARKS */}
+          <div className="space-y-2">
+            <Label>Remarks</Label>
+            <Textarea
+              value={formData.remarks}
+              onChange={(e) =>
+                setFormData({ ...formData, remarks: e.target.value })
+              }
+            />
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={mutation.isPending}
+            className="w-full"
+          >
+            {mutation.isPending && (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            )}
+            Save changes
+          </Button>
         </form>
       </SheetContent>
     </Sheet>

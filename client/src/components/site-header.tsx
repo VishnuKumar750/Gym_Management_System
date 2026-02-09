@@ -68,7 +68,7 @@ export function SiteHeader() {
                 <BreadcrumbItem>
                   <Link
                     to={crumb.path}
-                    className="capitalize text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     {crumb.label}
                   </Link>
@@ -89,7 +89,7 @@ export function SiteHeader() {
                 <Avatar>
                   <AvatarImage
                     src={user?.imageUrl}
-                    alt={user?.name || "User"}
+                    alt={user?.name ?? "User"}
                     className="grayscale"
                   />
                   <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
@@ -99,9 +99,9 @@ export function SiteHeader() {
 
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="flex flex-col items-start gap-0.5">
-                <span className="font-medium">{user?.name || "Guest"}</span>
+                <span className="font-medium">{user?.name ?? "Guest"}</span>
                 <span className="text-xs text-muted-foreground">
-                  {user?.role || "User"}
+                  {user?.role ?? "Guest"}
                 </span>
               </DropdownMenuItem>
 
