@@ -1,108 +1,173 @@
-# Gym Management System API
+# Gym Management System
 
-This is the backend API for a Gym Management System. It includes modules for members, billing, diet plans, supplements, notifications, and reports. Role-based access control ensures proper authorization for Admins and Members.
+Gym Management System is a dashboard-oriented web application that helps gym owners, staff, and members manage memberships, billing, diets, supplements, and notifications online. The system supports analytics, report exports, and invoice downloads with role-based access control. report export and bill invoice download. 
 
----
+## Features
 
-## **Table of Contents**
+1. Role-based access control (Admin, Staff, Member)
+2. Create and manage members, staff, and admins
+3. Assign and manage fee packages
+4. Bill generation with invoice download
+5. Staff access to member records
+6. Analytics dashboard for Admin, Staff, and Members
+7. Notification reminders for members
+8. Supplement store (add, view, update, delete)
+9. Export reports (CSV / PDF)
 
-1. [Diet Module](#diet-module)
-2. [Supplement Module](#supplement-module)
-3. [Report Module](#report-module)
-4. [Notification Module](#notification-module)
-5. [Member Module](#member-module)
-6. [Bill Module](#bill-module)
-7. [Role-Based Access](#role-based-access)
+## Tech Stack
 
----
+• Frontend: React, TypeScript, Vite
 
-## **Diet Module**
+• Backend: Node.js, Express, TypeScript
 
-| Method | Endpoint                     | Role   | Description                                    |
-| ------ | ---------------------------- | ------ | ---------------------------------------------- |
-| POST   | `/api/diet/create`           | ADMIN  | Create a new diet plan for members.            |
-| GET    | `/api/diet/member/:memberId` | MEMBER | Fetch diet plan assigned to a specific member. |
-| PUT    | `/api/diet/:id`              | ADMIN  | Update an existing diet plan.                  |
+• Database: MongoDB
 
----
+• Authentication: JWT
 
-## **Supplement Module**
+• State / Data Fetching: React Query
 
-| Method | Endpoint              | Role           | Description                         |
-| ------ | --------------------- | -------------- | ----------------------------------- |
-| POST   | `/api/supplement/`    | ADMIN          | Add a new supplement to the store.  |
-| GET    | `/api/supplement/`    | ADMIN / MEMBER | Fetch all active supplements.       |
-| GET    | `/api/supplement/:id` | ADMIN / MEMBER | Get details of a single supplement. |
-| PUT    | `/api/supplement/:id` | ADMIN          | Update supplement information.      |
-| DELETE | `/api/supplement/:id` | ADMIN          | Remove a supplement from the store. |
+• form validation - zod validation
 
----
+• Styling: Tailwindcss / ShadcnUI components
 
-## **Report Module**
 
-| Method | Endpoint                                              | Role  | Description                                               |
-| ------ | ----------------------------------------------------- | ----- | --------------------------------------------------------- |
-| GET    | `/api/reports/revenue?startDate=&endDate=&format=csv` | ADMIN | Fetch revenue report for a date range. Can export as CSV. |
+## Project Structure
+#### Backend
+```text
+Backend/
+├── src/
+│   ├── config/
+│   │   ├── app.config.ts
+│   │   ├── db.config.ts
+│   │   ├── http.config.ts
+│   ├── middleware/
+│   │   ├── asyncHandler.middleware.ts
+│   │   ├── auth.middleware.ts
+│   │   ├── errorHandler.middleware.ts
+│   │   ├── rbac.middleware.ts
+│   │   ├── validate.middleware.ts
+│   │   ├── morganLogger.middleware.ts
+│   ├── modules/
+│   │   ├── auth/
+│   │   ├── bill/
+│   │   ├── diet/
+│   │   ├── notification/
+│   │   ├── package/
+│   │   ├── supplement/
+│   │   ├── user/
+│   ├── seed/
+│   │   ├── seed-admin.ts
+│   ├── utils/
+│   ├── server.ts
+│── .env
+│── .prettierignore
+│── .prettierrc
+│── .eslint.config.js
+│── package.json
+│── package-lock.json
 
----
+```
+#### Client
+```text
+client/
+├── public/
+├── src/
+│   ├── api/
+│   ├── assets/
+│   ├── axios/
+│   ├── components/
+│   ├── features/
+│   ├── hooks/
+│   ├── lib/
+│   ├── routes/
+│   ├── types/
+│   ├── utils/
+│   ├── validators/
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── index.css
+│   ├── App.css
+├── .env
+├── index.html
+├── package.json
+├── tsconfig.json
+├── tsconfig.app.json
+├── tsconfig.node.json
+├── vite.config.ts
 
-## **Notification Module**
+```
 
-| Method | Endpoint                      | Role   | Description                                  |
-| ------ | ----------------------------- | ------ | -------------------------------------------- |
-| POST   | `/api/notification/create`    | ADMIN  | Create a custom notification for any member. |
-| GET    | `/api/notification/:memberId` | MEMBER | Get all notifications for a member.          |
-| GET    | `/api/notification/read/:id`  | MEMBER | Mark a notification as read.                 |
+## Installation & Setup
 
----
-
-## **Member Module**
-
-| Method | Endpoint                  | Role  | Description                       |
-| ------ | ------------------------- | ----- | --------------------------------- |
-| POST   | `/api/member/`            | ADMIN | Create a new member (admin-only). |
-| GET    | `/api/member/all-members` | ADMIN | Fetch all registered members.     |
-
----
-
-## **Bill Module**
-
-| Method | Endpoint               | Role   | Description                 |
-| ------ | ---------------------- | ------ | --------------------------- |
-| POST   | `/api/bills/`          | ADMIN  | Create a bill for a member. |
-| GET    | `/api/bills/:memberId` | MEMBER | Get all bills for a member. |
-| PATCH  | `/api/bills/:id`       | ADMIN  | Update bill status.         |
-
----
-
-## **Role-Based Access**
-
-- **protectRoute**: Ensures the user is authenticated.
-- **authorizeRoles(UserRole.X)**: Restricts access to a specific role (`ADMIN`, `MEMBER`, `USER`).
-- **Validation Middleware**: Ensures API request payloads are correct using Zod schemas.
-
----
-
-## **Usage**
-
-- Base URL: `/api/`
-- All routes are prefixed with `/api` and are protected by authentication middleware.
-
----
-
-## **Example**
-
-Create a member (Admin only):
+clone the repository
 
 ```bash
-POST /api/member/
-Content-Type: application/json
-Authorization: Bearer <ADMIN_TOKEN>
-
-{
-  "user": "6933e2a485f06b64ed3d45b1",
-  "fullName": "John Member",
-  "phone": "9876543210",
-  "age": 25
-}
+git clone 
+cd Gym_Management_System
 ```
+
+#### Backend Setup
+```bash
+cd Backend
+```
+
+##### create .env file 
+```bash 
+MONGO_URI=your_mongo_uri
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=your_jwt_expires
+
+FRONTEND_ORIGIN=http://localhost:5173
+LOCAL_HOST=http://localhost:5173
+LOCAL_HOST_PRODUCTION=http://localhost:4173
+```
+
+## Install & run 
+```bash 
+npm install
+npm run dev
+```
+
+##### Backend runs on:
+```bash
+
+http://localhost:4000
+
+```
+## Client Setup
+```bash 
+cd client
+```
+
+#### create .env file 
+```bash
+
+LOCAL_BACKEND_URL=http://localhost:4000/api/v1
+PRODUCTION_BACKEND_URL=your_production_backend_url
+
+```
+
+## Install & run
+```bash 
+npm install
+npm run dev
+```
+
+
+##### Frontend runs on:
+```bash
+
+http://localhost:5173
+
+```
+
+## Contributing
+
+Contributions are welcome.
+Please open an issue for major changes before submitting a pull request.
+
+Ensure code quality and tests are updated where applicable.
+
+## License
+
+This project is open-source and available under the MIT License.
