@@ -102,7 +102,7 @@ client/
 clone the repository
 
 ```bash
-git clone 
+git clone https://github.com/VishnuKumar750/Gym_Management_System.git
 cd Gym_Management_System
 ```
 
