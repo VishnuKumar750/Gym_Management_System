@@ -1,3 +1,6 @@
+
+```text
+
 src/
 ├── api/                # API calls (axios)
 ├── components/         # Reusable UI components
